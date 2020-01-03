@@ -1,0 +1,85 @@
+
+`ifndef UVM_SCOREBOARD__SV
+`define UVM_SCOREBOARD__SV
+class uvm_scoreboard extends uvm_scoreboard;
+    int                                 check_dut_num;
+    int                                 check_rm_num;
+    int                                 check_pass_num;
+    user_uvm_trans                           expect_queue[$];
+    uvm_blocking_get_port #(user_uvm_trans)  exp_port;
+    uvm_blocking_get_port #(user_uvm_trans)  act_port;
+    `uvm_component_utils(uvm_scoreboard)
+
+    extern function new(string name, uvm_component parent = null);
+    extern virtual function void build_phase(uvm_phase phase);
+    extern virtual task main_phase(uvm_phase phase);
+    extern virtual task post_main_phase(uvm_phase phase);
+endclass 
+
+function uvm_scoreboard::new(string name, uvm_component parent = null);
+    super.new(name, parent);
+endfunction 
+
+function void uvm_scoreboard::build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    check_dut_num   = 0;
+    check_rm_num    = 0;
+    check_pass_num  = 0;
+    exp_port = new("exp_port", this);
+    act_port = new("act_port", this);
+endfunction 
+
+task uvm_scoreboard::main_phase(uvm_phase phase);
+    user_uvm_trans get_expect, get_actual, tmp_tran;
+    bit result;
+ 
+    super.main_phase(phase);
+    `uvm_info("uvm_scoreboard", "main phase start", UVM_LOW);
+    fork 
+       while (1) begin
+          exp_port.get(get_expect);
+          expect_queue.push_back(get_expect);
+          check_rm_num++;
+       end
+       while (1) begin
+          act_port.get(get_actual);
+          if(expect_queue.size() > 0) begin
+              check_dut_num++;
+             `uvm_info("uvm_scoreboard", $sformatf("compare start @ %d", $time), UVM_HIGH);
+             tmp_tran = expect_queue.pop_front();
+             result   = get_actual.compare(tmp_tran);
+             $display ("compare result is %d", result);
+             if(!result) begin 
+                 check_pass_num++;
+                `uvm_info("uvm_scoreboard", "Compare SUCCESSFULLY!", UVM_LOW);
+             end
+             else begin
+                `uvm_error("uvm_scoreboard", "Compare FAILED!!!");
+                `uvm_info("uvm_scoreboard", "the expect pkt is", UVM_LOW);
+                tmp_tran.print();
+                `uvm_info("uvm_scoreboard", "the actual pkt is", UVM_LOW);
+                get_actual.print();
+             end
+          end
+          else begin
+             `uvm_error("uvm_scoreboard", "Received from DUT, while Expect Queue is empty");
+             `uvm_info("uvm_scoreboard", "the unexpected pkt is", UVM_LOW);
+             get_actual.print();
+          end 
+          `uvm_info("uvm_scoreboard", "get act port end", UVM_LOW);
+          `uvm_info("uvm_scoreboard",$sformatf("check_rm_num: %d,check_dut_num: %d,check_pass_num: %d",check_rm_num,check_dut_num,check_pass_num),UVM_LOW);
+       end
+    join
+    `uvm_info("uvm_scoreboard", "main phase end", UVM_LOW);
+endtask
+task uvm_scoreboard::post_main_phase(uvm_phase phase);
+    phase.raise_objection(this);
+    `uvm_info("uvm_scoreboard","post main phase start", UVM_LOW)
+    if(expect_queue.size()>1)
+        `uvm_error("uvm_scoreboard",$sformatf("More than one frame data left in except queue: remain packet num: %d",expect_queue.size()))
+    #100
+    `uvm_info("uvm_scoreboard","post main phase end", UVM_LOW)
+    phase.drop_objection(this);
+
+endtask
+`endif
