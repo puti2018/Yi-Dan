@@ -17,9 +17,17 @@ class clk_model extends uvm_component;
 endclass
 
 //example for use
+//env
 class base_env extends uvm_env;
     clk_model clk_sys;
     virtual function void build_phase(uvm_phase phase);
         clk_sys = clk_model::type_id::create("clk_sys", this);
     endfunction
 endclass
+
+//tb
+//interface instance
+clk_if cif();
+dut my_dut(.clk(cif.clk),
+           .rst_n(rst_n)
+           )
