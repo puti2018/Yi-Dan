@@ -1,0 +1,25 @@
+class clk_model extends uvm_component;
+    `uvm_component_utils(clk_model)
+    virtual clk_if vif;
+    real half_period = 100.0;
+    function void build_phase(uvm_phase phase);
+        super.build_phase(phase);
+        if(!uvm_config_db#(virtual clk_if)::get(this, "", "vif", vif))
+            `uvm_fatal("clk_model", "must set interface for vif")
+        void'(uvm_config_db#(real)::get(this, "", "half_period", half_perio d));
+        `uvm_info("clk_model", $sformatf("clk_half_period is %0f", half_peri od), UVM_MEDIUM)
+    endfunction
+    virtual task run_phase(uvm_phase phase);
+        vif.clk = 0;
+        forever begin
+            #(half_period*1.0ns) vif.clk = ~vif.clk;
+        end
+endclass
+
+//example for use
+class base_env extends uvm_env;
+    clk_model clk_sys;
+    virtual function void build_phase(uvm_phase phase);
+        clk_sys = clk_model::type_id::create("clk_sys", this);
+    endfunction
+endclass
